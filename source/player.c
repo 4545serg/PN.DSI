@@ -21,7 +21,7 @@
 #define CHUNK_SAMPLES     (1152 * FRAMES_PER_CHUNK)   /* per channel */
 
 static mp3dec_t dec;
-static FILE *fp = NULL;
+static FILE *mp3_file = NULL;
 static uint8_t inbuf[IN_BUF];
 static size_t in_len = 0, in_pos = 0;
 static bool in_eof = false;
@@ -43,7 +43,8 @@ static uint32_t paused_ms = 0;
 static PlayerState state = PL_IDLE;
 
 static bool chan_busy(int ch) {
-    return ch >= 0 && (SCHANNEL_CR(ch) & SOUND_ENABLE);
+    /* libnds exposes active ARM7 sound channels through this shared mask. */
+    return ch >= 0 && (soundGetActiveChannels() & (1u << ch)) != 0;
 }
 
 static void kill_channels(void) {
@@ -58,7 +59,7 @@ static void refill(void) {
         in_len -= in_pos;
         in_pos = 0;
     }
-    size_t n = fread(inbuf + in_len, 1, IN_BUF - in_len, fp);
+    size_t n = fread(inbuf + in_len, 1, IN_BUF - in_len, mp3_file);
     in_len += n;
     if (n == 0) in_eof = true;
 }
@@ -126,7 +127,7 @@ static bool start_at(uint32_t ms) {
         state = PL_ENDED;
         return false;
     }
-    fseek(fp, (long)off, SEEK_SET);
+    fseek(mp3_file, (long)off, SEEK_SET);
     in_len = in_pos = 0;
     in_eof = false;
     mp3dec_init(&dec);
@@ -147,17 +148,17 @@ static bool start_at(uint32_t ms) {
 bool player_open(const char *path, uint32_t start_ms, bool autoplay) {
     player_close();
 
-    fp = fopen(path, "rb");
-    if (!fp) return false;
+    mp3_file = fopen(path, "rb");
+    if (!mp3_file) return false;
 
-    fseek(fp, 0, SEEK_END);
-    file_size = (uint32_t)ftell(fp);
-    fseek(fp, 0, SEEK_SET);
+    fseek(mp3_file, 0, SEEK_END);
+    file_size = (uint32_t)ftell(mp3_file);
+    fseek(mp3_file, 0, SEEK_SET);
 
     /* Skip an ID3v2 tag (its size is "syncsafe": 7 bits per byte). */
     uint8_t hdr[10];
     data_start = 0;
-    if (fread(hdr, 1, 10, fp) == 10 && memcmp(hdr, "ID3", 3) == 0) {
+    if (fread(hdr, 1, 10, mp3_file) == 10 && memcmp(hdr, "ID3", 3) == 0) {
         uint32_t sz = ((uint32_t)(hdr[6] & 0x7F) << 21) | ((uint32_t)(hdr[7] & 0x7F) << 14) |
                       ((uint32_t)(hdr[8] & 0x7F) << 7) | (uint32_t)(hdr[9] & 0x7F);
         data_start = 10 + sz;
@@ -169,7 +170,7 @@ bool player_open(const char *path, uint32_t start_ms, bool autoplay) {
     }
 
     /* Probe the first frame for sample rate and bitrate. */
-    fseek(fp, (long)data_start, SEEK_SET);
+    fseek(mp3_file, (long)data_start, SEEK_SET);
     in_len = in_pos = 0;
     in_eof = false;
     mp3dec_init(&dec);
@@ -192,9 +193,9 @@ bool player_open(const char *path, uint32_t start_ms, bool autoplay) {
 
 void player_close(void) {
     kill_channels();
-    if (fp) {
-        fclose(fp);
-        fp = NULL;
+    if (mp3_file) {
+        fclose(mp3_file);
+        mp3_file = NULL;
     }
     state = PL_IDLE;
     cur_len = 0;
@@ -247,7 +248,7 @@ uint32_t player_pos_ms(void) {
 }
 
 uint32_t player_len_ms(void) {
-    if (!fp || bitrate_kbps == 0) return 0;
+    if (!mp3_file || bitrate_kbps == 0) return 0;
     /* bits / (kbit per second) = milliseconds. Exact for CBR, an estimate for VBR. */
     return (uint32_t)((uint64_t)(file_size - data_start) * 8 / bitrate_kbps);
 }

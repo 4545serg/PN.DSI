@@ -41,8 +41,9 @@ bool br_open(const char *dir) {
         if (!isdir && !is_mp3(e->d_name)) continue;
 
         BrEntry *it = &br_items[br_count++];
-        strncpy(it->name, e->d_name, BR_NAME_MAX - 1);
-        it->name[BR_NAME_MAX - 1] = 0;
+        size_t len = strnlen(e->d_name, BR_NAME_MAX - 1);
+        memcpy(it->name, e->d_name, len);
+        it->name[len] = 0;
         it->dir = isdir;
     }
     closedir(d);

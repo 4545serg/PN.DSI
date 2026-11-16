@@ -9,29 +9,31 @@ ifeq ($(strip $(DEVKITARM)),)
 $(error "DEVKITARM is not set. Install devkitPro (https://devkitpro.org) first.")
 endif
 
+# ds_rules must come first: it defines LIBNDS, which the include paths below need.
 include $(DEVKITARM)/ds_rules
+
+export TOPDIR ?= $(CURDIR)
 
 TARGET   := project_noise_dsi
 BUILD    := build
 SOURCES  := source
 INCLUDES := source
-DATA     :=
-GRAPHICS :=
+LIBDIRS  := $(LIBNDS) $(DEVKITPRO)/libfat
+
+# Recursive (=) so these expand in the build subdirectory too.
+INCLUDE  = $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) $(foreach dir,$(LIBDIRS),-I$(dir)/include)
+LIBPATHS = $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 ARCH     := -mthumb -mthumb-interwork
-CFLAGS   := -g -Wall -O2 -march=armv5te -mtune=arm946e-s -fomit-frame-pointer -ffast-math $(ARCH) -MMD -MP
-CFLAGS   += $(INCLUDE) -DARM9
-CXXFLAGS := $(CFLAGS)
+CFLAGS   = -g -Wall -O2 -march=armv5te -mtune=arm946e-s -fomit-frame-pointer -ffast-math $(ARCH) -MMD -MP $(INCLUDE) -DARM9
+CXXFLAGS = $(CFLAGS)
 ASFLAGS  := -g $(ARCH)
 LDFLAGS  := -specs=ds_arm9.specs -g $(ARCH) -Wl,-Map,$(TARGET).map
 LIBS     := -lfat -lnds9 -lm
-LIBDIRS  := $(LIBNDS) $(DEVKITPRO)/libfat
 
 #---------------------------------------------------------------------------------
-# Top level: run the real build inside ./build so object files stay out of the way.
+# Top level: the real build runs inside ./build so object files stay out of the way.
 #---------------------------------------------------------------------------------
-export TOPDIR ?= $(CURDIR)
-
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 
 .PHONY: $(BUILD) clean deps
@@ -49,14 +51,11 @@ clean:
 
 else
 
-export OUTPUT  := $(TOPDIR)/$(TARGET)
-export VPATH   := $(foreach dir,$(SOURCES),$(TOPDIR)/$(dir))
+export OUTPUT := $(TOPDIR)/$(TARGET)
+export VPATH  := $(foreach dir,$(SOURCES),$(TOPDIR)/$(dir))
 
-CFILES   := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(TOPDIR)/$(dir)/*.c)))
+CFILES := $(foreach dir,$(SOURCES),$(notdir $(wildcard $(TOPDIR)/$(dir)/*.c)))
 export OFILES := $(CFILES:.c=.o)
-export INCLUDE := $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) \
-                  $(foreach dir,$(LIBDIRS),-I$(dir)/include)
-export LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
 DEPENDS := $(OFILES:.o=.d)
 

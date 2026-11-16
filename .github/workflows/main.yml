@@ -1,0 +1,27 @@
+name: Build PROJECT NOISE DSi
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libnds and libfat
+        run: dkp-pacman -Sy --noconfirm nds-dev
+
+      - name: Fetch minimp3
+        run: sh tools/get_deps.sh
+
+      - name: Build
+        run: make
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PROJECT-NOISE-DSI
+          path: project_noise_dsi.nds

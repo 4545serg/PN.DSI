@@ -434,7 +434,7 @@ int main(void) {
         consoleSelect(&top_con);
         consoleClear();
         iprintf("\n SD card not found.\n Insert the SD card\n and restart the app.\n");
-        while (1) swiWaitForVBlank();
+        while (pmMainLoop()) swiWaitForVBlank();
     }
 
     soundEnable();
@@ -451,7 +451,7 @@ int main(void) {
     }
 
     PlayerState last_state = PL_IDLE;
-    while (1) {
+    while (pmMainLoop()) {
         swiWaitForVBlank();
         scanKeys();
         uint32_t down = keysDown();

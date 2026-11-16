@@ -24,8 +24,11 @@ LIBDIRS  := $(LIBNDS) $(DEVKITPRO)/libfat
 INCLUDE  = $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) $(foreach dir,$(LIBDIRS),-I$(dir)/include)
 LIBPATHS = $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
-ARCH     := -mthumb -mthumb-interwork
-CFLAGS   = -g -Wall -O2 -march=armv5te -mtune=arm946e-s -fomit-frame-pointer -ffast-math $(ARCH) -MMD -MP $(INCLUDE) -DARM9
+# Current devkitARM/binutils no longer supports the legacy
+# -mthumb-interwork linker emulation. Match the official devkitPro NDS
+# ARM9 examples: ARMv5TE/ARM946E-S in Thumb mode.
+ARCH     := -march=armv5te -mtune=arm946e-s -mthumb
+CFLAGS   = -g -Wall -O2 -fomit-frame-pointer -ffast-math $(ARCH) -MMD -MP $(INCLUDE) -DARM9
 CXXFLAGS = $(CFLAGS)
 ASFLAGS  := -g $(ARCH)
 LDFLAGS  := -specs=ds_arm9.specs -g $(ARCH) -Wl,-Map,$(TARGET).map
